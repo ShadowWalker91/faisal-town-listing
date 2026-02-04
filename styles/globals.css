@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Base Backgrounds */
+    --background: 0 0% 100%;
+    --foreground: 283 5% 10%; /* Dark text with a tiny hint of purple */
+
+    /* Card Backgrounds */
+    --card: 0 0% 100%;
+    --card-foreground: 283 5% 15%;
+
+    /* Popovers */
+    --popover: 0 0% 100%;
+    --popover-foreground: 283 5% 10%;
+
+    /* BRANDING COLORS */
+    /* Primary: #b600ff (Vivid Purple) */
+    --primary: 283 100% 50%;
+    --primary-foreground: 0 0% 100%; /* White text on purple buttons */
+
+    /* Secondary: Very light purple for backgrounds/containers */
+    --secondary: 260 100% 96%; 
+    --secondary-foreground: 283 100% 50%; 
+
+    /* Muted/Greys */
+    --muted: 283 20% 96%;
+    --muted-foreground: 283 5% 45%;
+
+    /* Accent: #a172ff (Lighter Purple) - Used for hover effects */
+    --accent: 260 100% 72%; 
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive/Error */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Borders & Inputs */
+    --border: 283 20% 90%;
+    --input: 283 20% 90%;
+    
+    /* Focus Ring - Matches Primary Purple */
+    --ring: 283 100% 50%; 
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 283 50% 3%;
+    --foreground: 283 5% 90%;
+
+    --card: 283 50% 3%;
+    --card-foreground: 283 5% 90%;
+
+    --popover: 283 50% 5%;
+    --popover-foreground: 283 5% 90%;
+
+    /* Dark Mode Adjustments */
+    --primary: 283 100% 60%; 
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 283 30% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 283 30% 15%;
+    --muted-foreground: 283 5% 60%;
+
+    --accent: 283 30% 15%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 283 30% 18%;
+    --input: 283 30% 18%;
+    --ring: 283 100% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
