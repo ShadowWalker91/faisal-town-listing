@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,14 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PROPERTY_TYPES } from "@/lib/types"
 import { Search } from "lucide-react"
+
+// Declare global types for YouTube API to avoid TS errors
+declare global {
+  interface Window {
+    onYouTubeIframeAPIReady: () => void
+    YT: any
+  }
+}
 
 export function HeroSearch() {
   const router = useRouter()
@@ -17,7 +25,9 @@ export function HeroSearch() {
   const [search, setSearch] = useState<string>("")
   
   const [sectorsList, setSectorsList] = useState<any[]>([])
+  const playerRef = useRef<any>(null)
 
+  // 1. Fetch Sectors
   useEffect(() => {
     async function fetchSectors() {
       const { data, error } = await supabase
@@ -32,6 +42,68 @@ export function HeroSearch() {
     fetchSectors()
   }, [])
 
+  // 2. Load YouTube API & Handle Looping
+  useEffect(() => {
+    // Check if script is already loaded
+    if (!window.YT) {
+      const tag = document.createElement('script')
+      tag.src = "https://www.youtube.com/iframe_api"
+      const firstScriptTag = document.getElementsByTagName('script')[0]
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
+    }
+
+    // Initialize Player when API is ready
+    window.onYouTubeIframeAPIReady = () => {
+      playerRef.current = new window.YT.Player('youtube-player', {
+        videoId: 'S0SbSMY1_qk',
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          disablekb: 1,
+          fs: 0, // No fullscreen
+          loop: 1,
+          modestbranding: 1,
+          playsinline: 1,
+          rel: 0, // No related videos
+          showinfo: 0,
+          mute: 1, // Mute needed for autoplay
+          playlist: 'S0SbSMY1_qk', 
+        },
+        events: {
+          onReady: (event: any) => {
+            event.target.mute()
+            event.target.playVideo()
+
+            // CHECK TIME INTERVAL
+            // Stop 15 seconds before end and restart
+            const timer = setInterval(() => {
+              const player = event.target
+              if (player && player.getCurrentTime) {
+                const currentTime = player.getCurrentTime()
+                const duration = player.getDuration()
+
+                // If within 15 seconds of the end, seek to 0
+                if (duration > 0 && (duration - currentTime) <= 15) {
+                  player.seekTo(0)
+                }
+              }
+            }, 1000)
+            
+            // Clean up interval on unmount logic could go here if needed, 
+            // but for a Hero component it's usually fine.
+          }
+        }
+      })
+    }
+
+    // If API was already loaded (navigation back/forth), manually trigger initialization could be tricky,
+    // but usually Next.js handles this re-mount well.
+    if (window.YT && window.YT.Player) {
+       window.onYouTubeIframeAPIReady()
+    }
+
+  }, [])
+
   const handleSearch = () => {
     const params = new URLSearchParams()
     if (listingType) params.set("listingType", listingType)
@@ -42,22 +114,20 @@ export function HeroSearch() {
   }
 
   return (
-    <section className="relative min-h-screen flex flex-col justify-center overflow-hidden py-20">
+    <section className="relative flex flex-col justify-center overflow-hidden py-24 md:min-h-screen md:py-20">
       
-      {/* Background Video */}
+      {/* Background Video Wrapper */}
       <div className="absolute inset-0 w-full h-full z-0 pointer-events-none select-none overflow-hidden">
-        <iframe
-          src="https://www.youtube.com/embed/S0SbSMY1_qk?autoplay=1&mute=1&controls=0&loop=1&playlist=S0SbSMY1_qk&showinfo=0&rel=0&iv_load_policy=3&disablekb=1&modestbranding=1&playsinline=1&enablejsapi=1"
-          className="absolute top-1/2 left-1/2 min-w-[100vw] min-h-[100vh] w-[177.77vh] h-[56.25vw] -translate-x-1/2 -translate-y-1/2 scale-110"
-          title="Faisal Town Background Video"
-          allow="autoplay; encrypted-media; gyroscope; picture-in-picture"
-          tabIndex={-1}
-        />
+        {/* CSS Positioning Wrapper to handle Scaling */}
+        <div className="absolute top-1/2 left-1/2 min-w-[100vw] min-h-[100vh] w-[300%] h-[150%] md:w-[177.77vh] md:h-[56.25vw] -translate-x-1/2 -translate-y-1/2">
+           {/* The actual div the API replaces with an Iframe */}
+           <div id="youtube-player" className="w-full h-full" />
+        </div>
       </div>
 
       <div className="absolute inset-0 bg-black/60 z-10" />
       
-      <div className="container relative z-20 mx-auto px-4">
+      <div className="container relative z-20 mx-auto px-4 mt-10 md:mt-0">
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="mb-4 text-balance text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">
             Find Your Perfect Property in <span className="text-secondary">Faisal Town</span>
@@ -66,8 +136,8 @@ export function HeroSearch() {
             Discover residential, commercial properties and plots in the heart of Islamabad
           </p>
 
-          {/* GLASS SLAB CONTAINER */}
-          <div className="mx-auto max-w-4xl rounded-xl bg-white/20 p-4 shadow-2xl backdrop-blur-md border border-white/30 md:p-6">
+          {/* SEARCH CONTAINER */}
+          <div className="mx-auto max-w-4xl rounded-xl bg-black/20 p-4 shadow-2xl border border-black/20 md:p-6">
             
             {/* TABS (Buy/Rent) */}
             <div className="mb-4 flex gap-2">
@@ -96,7 +166,7 @@ export function HeroSearch() {
             </div>
 
             {/* SEARCH FIELDS GRID */}
-            <div className="grid gap-3 md:grid-cols-4 items-center">
+            <div className="grid gap-3 md:grid-cols-4">
               
               {/* 1. Location Input */}
               <div className="md:col-span-2">
@@ -104,15 +174,13 @@ export function HeroSearch() {
                   placeholder="Search by location, property type..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  // FIXED: h-14 and w-full for uniform size
-                  className="w-full h-14 border-transparent bg-white text-foreground focus-visible:ring-[#b800ff] shadow-sm text-base px-6"
+                  className="w-full !h-14 border-transparent bg-white text-foreground focus-visible:ring-[#b800ff] shadow-sm text-base px-6"
                 />
               </div>
 
               {/* 2. Property Type Dropdown */}
               <Select value={propertyType} onValueChange={setPropertyType}>
-                {/* FIXED: h-14 and w-full for uniform size */}
-                <SelectTrigger className="w-full h-14 border-transparent bg-white text-foreground focus:ring-[#b800ff] shadow-sm text-base px-4">
+                <SelectTrigger className="w-full !h-14 flex items-center border-transparent bg-white text-foreground focus:ring-[#b800ff] shadow-sm text-base px-4">
                   <SelectValue placeholder="Property Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -127,8 +195,7 @@ export function HeroSearch() {
               
               {/* 3. Sector Dropdown */}
               <Select value={sector} onValueChange={setSector}>
-                {/* FIXED: h-14 and w-full for uniform size */}
-                <SelectTrigger className="w-full h-14 border-transparent bg-white text-foreground focus:ring-[#b800ff] shadow-sm text-base px-4">
+                <SelectTrigger className="w-full !h-14 flex items-center border-transparent bg-white text-foreground focus:ring-[#b800ff] shadow-sm text-base px-4">
                   <SelectValue placeholder="Sector" />
                 </SelectTrigger>
                 <SelectContent>
@@ -150,8 +217,7 @@ export function HeroSearch() {
             <Button
               onClick={handleSearch}
               size="lg"
-              // FIXED: h-14 to match fields
-              className="mt-4 w-full h-14 bg-[#b800ff] text-white hover:bg-[#b800ff]/90 md:w-auto md:px-12 font-bold shadow-lg shadow-[#b800ff]/20 text-lg"
+              className="mt-4 w-full !h-14 bg-[#b800ff] text-white hover:bg-[#b800ff]/90 md:w-auto md:px-12 font-bold shadow-lg shadow-[#b800ff]/20 text-lg"
             >
               <Search className="mr-2 h-6 w-6" />
               Search Properties

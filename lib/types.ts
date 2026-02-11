@@ -14,6 +14,7 @@ export type PropertyType =
 
 export interface Property {
   id: string
+  uuid: string
   title: string
   description: string
   price: number
@@ -59,13 +60,50 @@ export const PROPERTY_TYPES: { value: PropertyType; label: string; category: Pro
   { value: "commercial-plot", label: "Commercial Plot", category: "plot" },
 ]
 
-export function formatPrice(price: number): string {
-  if (price >= 10000000) {
-    return `PKR ${(price / 10000000).toFixed(2)} Crore`
-  } else if (price >= 100000) {
-    return `PKR ${(price / 100000).toFixed(2)} Lac`
+export function formatPrice(price: number | string): string {
+  const numericPrice = Number(price);
+  if (isNaN(numericPrice) || numericPrice === 0) return "Rs. 0";
+
+  // Helper function to build the string recursively
+  function formatRecursive(amount: number): string {
+    if (amount === 0) return "";
+
+    if (amount >= 10000000) {
+      // Crore (1,00,00,000)
+      const crore = Math.floor(amount / 10000000);
+      const remainder = amount % 10000000;
+      return `${crore} Crore ${formatRecursive(remainder)}`;
+    } 
+    
+    if (amount >= 100000) {
+      // Lac (1,00,000)
+      const lac = Math.floor(amount / 100000);
+      const remainder = amount % 100000;
+      return `${lac} Lac ${formatRecursive(remainder)}`;
+    } 
+    
+    if (amount >= 1000) {
+      // Thousand (1,000)
+      const thousand = Math.floor(amount / 1000);
+      const remainder = amount % 1000;
+      return `${thousand} Thousand ${formatRecursive(remainder)}`;
+    } 
+    
+    if (amount >= 100) {
+      // Hundred (100)
+      const hundred = Math.floor(amount / 100);
+      const remainder = amount % 100;
+      return `${hundred} Hundred ${formatRecursive(remainder)}`;
+    }
+
+    // Less than 100, just return the number
+    return amount.toString();
   }
-  return `PKR ${price.toLocaleString()}`
+
+  // Get the formatted string and trim extra spaces
+  const result = formatRecursive(numericPrice).trim();
+  
+  return `Rs. ${result}`;
 }
 
 export function formatArea(area: number, unit: "marla" | "kanal" | "sqft"): string {

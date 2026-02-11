@@ -1,22 +1,39 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { SECTORS, PROPERTY_TYPES } from "@/lib/types"
+import { PROPERTY_TYPES } from "@/lib/types"
 import { X } from "lucide-react"
 
 export function PropertyFilters() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [blocks, setBlocks] = useState<any[]>([])
 
   const listingType = searchParams.get("listingType") || ""
   const category = searchParams.get("category") || ""
   const propertyType = searchParams.get("propertyType") || ""
   const sector = searchParams.get("sector") || ""
+
+  useEffect(() => {
+    async function fetchBlocks() {
+      const { data, error } = await supabase
+        .from('sectors')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (!error && data) {
+        setBlocks(data)
+      }
+    }
+    fetchBlocks()
+  }, [])
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -100,17 +117,19 @@ export function PropertyFilters() {
           </Select>
         </div>
 
+        {/* --- FIXED BLOCK FILTER --- */}
         <div className="space-y-3">
-          <Label className="text-sm font-medium">Sector</Label>
+          <Label className="text-sm font-medium">Block</Label>
           <Select value={sector || "all"} onValueChange={(value) => updateFilter("sector", value)}>
             <SelectTrigger>
-              <SelectValue placeholder="All Sectors" />
+              <SelectValue placeholder="All Blocks" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Sectors</SelectItem>
-              {SECTORS.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
+              <SelectItem value="all">All Blocks</SelectItem>
+              {blocks.map((block) => (
+                // Using block.name ensures the URL is readable and matches text-based searches
+                <SelectItem key={block.id} value={block.name}>
+                  {block.name}
                 </SelectItem>
               ))}
             </SelectContent>

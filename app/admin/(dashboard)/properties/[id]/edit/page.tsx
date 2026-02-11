@@ -11,12 +11,12 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { SECTORS, PROPERTY_TYPES } from "@/lib/types"
-import { ArrowLeft, Save, Upload, X, Loader2 } from "lucide-react"
+// NOTE: Removed SECTORS import to use dynamic DB data instead
+import { PROPERTY_TYPES } from "@/lib/types"
+import { ArrowLeft, Save, Upload, X, Loader2, Star } from "lucide-react"
 
 export default function EditPropertyPage() {
   const router = useRouter()
-  // In Next.js App Router, we get the ID using useParams()
   const params = useParams()
   const id = params?.id
 
@@ -27,6 +27,10 @@ export default function EditPropertyPage() {
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [existingImages, setExistingImages] = useState<string[]>([])
+
+  // Dynamic Lists State
+  const [sectorsList, setSectorsList] = useState<any[]>([])
+  const [agentsList, setAgentsList] = useState<any[]>([])
 
   const [formData, setFormData] = useState({
     title: "",
@@ -44,50 +48,63 @@ export default function EditPropertyPage() {
     address: "",
     features: "",
     readyToMove: false,
+    isFeatured: false, // Ensure this exists in initial state
+    agent_id: "",
   })
 
   // 1. Fetch Data on Load
   useEffect(() => {
-    async function fetchProperty() {
+    async function fetchData() {
       if (!id) return
 
-      const { data, error } = await supabase
-        .from('properties')
-        .select('*')
-        .eq('id', id)
-        .single()
+      try {
+        // A. Load Select Options (Sectors & Agents)
+        const { data: sData } = await supabase.from('sectors').select('*').order('name', { ascending: true })
+        setSectorsList(sData || [])
 
-      if (error) {
-        alert("Error finding property: " + error.message)
+        const { data: aData } = await supabase.from('agents').select('*').order('name', { ascending: true })
+        setAgentsList(aData || [])
+
+        // B. Load Property Data
+        const { data: property, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('id', id)
+          .single()
+
+        if (error) throw error
+
+        // C. Populate Form
+        setFormData({
+          title: property.title,
+          description: property.description || "",
+          price: property.price,
+          listingType: property.listing_type,
+          category: property.category,
+          propertyType: property.property_type,
+          bedrooms: property.bedrooms || "",
+          bathrooms: property.bathrooms || "",
+          area: property.area,
+          areaUnit: property.area_unit,
+          sector: property.sector, // This matches s.name from DB
+          street: property.street || "",
+          address: property.address,
+          features: property.features ? property.features.join(", ") : "",
+          readyToMove: property.ready_to_move,
+          isFeatured: property.is_featured || false, // Correctly mapped
+          agent_id: property.agent_id ? property.agent_id.toString() : "",
+        })
+
+        if (property.images) setExistingImages(property.images)
+      } catch (error: any) {
+        alert("Error loading data: " + error.message)
         router.push('/admin/properties')
-        return
+      } finally {
+        setIsLoading(false)
       }
-
-      // 2. Populate Form (Map Database snake_case to Form camelCase)
-      setFormData({
-        title: data.title,
-        description: data.description || "",
-        price: data.price,
-        listingType: data.listing_type,
-        category: data.category,
-        propertyType: data.property_type,
-        bedrooms: data.bedrooms || "",
-        bathrooms: data.bathrooms || "",
-        area: data.area,
-        areaUnit: data.area_unit,
-        sector: data.sector,
-        street: data.street || "",
-        address: data.address,
-        features: data.features ? data.features.join(", ") : "",
-        readyToMove: data.ready_to_move,
-      })
-
-      // Set existing images
-      if (data.images) setExistingImages(data.images)
-      setIsLoading(false)
     }
 
-    fetchProperty()
+    fetchData()
   }, [id, router])
 
   // Handle New Image Selection
@@ -100,13 +117,11 @@ export default function EditPropertyPage() {
     }
   }
 
-  // Remove Newly Selected Image
   const removeNewImage = (index: number) => {
     setImageFiles((prev) => prev.filter((_, i) => i !== index))
     setImagePreviews((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // Remove Existing Database Image
   const removeExistingImage = (urlToRemove: string) => {
     setExistingImages((prev) => prev.filter((url) => url !== urlToRemove))
   }
@@ -153,10 +168,12 @@ export default function EditPropertyPage() {
         address: formData.address,
         features: formData.features.split(',').map(f => f.trim()).filter(f => f !== ''),
         ready_to_move: formData.readyToMove,
-        images: finalImages
+        is_featured: formData.isFeatured, // Sending TRUE/FALSE correctly
+        images: finalImages,
+        agent_id: formData.agent_id ? Number(formData.agent_id) : null
       }
 
-      // 3. Update (Using .update() and .eq())
+      // 3. Update
       const { error: updateError } = await supabase
         .from('properties')
         .update(dbData)
@@ -178,7 +195,6 @@ export default function EditPropertyPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Filter types based on category
   const filteredPropertyTypes = PROPERTY_TYPES.filter(
     (type) => type.category === formData.category
   )
@@ -254,7 +270,7 @@ export default function EditPropertyPage() {
                       </Label>
                     </div>
 
-                    {/* Existing Images from DB */}
+                    {/* Existing Images */}
                     {existingImages.map((src, index) => (
                       <div key={`old-${index}`} className="relative aspect-square rounded-lg border border-border bg-muted">
                         <img src={src} alt="Existing" className="h-full w-full object-cover rounded-lg" />
@@ -262,7 +278,6 @@ export default function EditPropertyPage() {
                           type="button"
                           onClick={() => removeExistingImage(src)}
                           className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-white shadow-sm hover:bg-destructive/90"
-                          title="Remove this image"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -307,7 +322,6 @@ export default function EditPropertyPage() {
                       value={formData.category}
                       onValueChange={(value) => {
                         handleChange("category", value)
-                        // Reset sub-type if category changes
                         const firstType = PROPERTY_TYPES.find((t) => t.category === value)
                         if (firstType) handleChange("propertyType", firstType.value)
                       }}
@@ -407,15 +421,31 @@ export default function EditPropertyPage() {
                     onChange={(e) => handleChange("features", e.target.value)}
                   />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="readyToMove"
-                    checked={formData.readyToMove}
-                    onCheckedChange={(checked) => handleChange("readyToMove", checked as boolean)}
-                  />
-                  <label htmlFor="readyToMove" className="text-sm text-foreground">
-                    Ready to Move
-                  </label>
+
+                {/* FEATURED & READY TO MOVE CHECKBOXES */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-3 rounded-lg border p-4 bg-muted/20">
+                        <Checkbox
+                            id="readyToMove"
+                            checked={formData.readyToMove}
+                            onCheckedChange={(checked) => handleChange("readyToMove", checked as boolean)}
+                        />
+                        <label htmlFor="readyToMove" className="text-sm font-medium cursor-pointer">
+                            Ready to Move
+                        </label>
+                    </div>
+
+                    <div className="flex items-center space-x-3 rounded-lg border p-4 bg-amber-50/50 border-amber-100">
+                        <Checkbox
+                            id="isFeatured"
+                            checked={formData.isFeatured}
+                            onCheckedChange={(checked) => handleChange("isFeatured", checked as boolean)}
+                            className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+                        />
+                        <label htmlFor="isFeatured" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                            Mark as Featured <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                        </label>
+                    </div>
                 </div>
               </CardContent>
             </Card>
@@ -432,13 +462,17 @@ export default function EditPropertyPage() {
                       value={formData.sector}
                       onValueChange={(value) => handleChange("sector", value)}
                     >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select Sector" /></SelectTrigger>
                       <SelectContent>
-                        {SECTORS.map((sector) => (
-                          <SelectItem key={sector.id} value={sector.id}>
-                            {sector.name}
-                          </SelectItem>
-                        ))}
+                        {sectorsList.length > 0 ? (
+                            sectorsList.map((sector) => (
+                            <SelectItem key={sector.id} value={sector.name}>
+                                {sector.name}
+                            </SelectItem>
+                            ))
+                        ) : (
+                            <div className="p-2 text-sm text-center text-muted-foreground">Loading sectors...</div>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -462,21 +496,41 @@ export default function EditPropertyPage() {
             </Card>
           </div>
 
-          <div className="lg:col-span-1">
-            <Card className="sticky top-8">
-              <CardHeader>
-                <CardTitle>Update Property</CardTitle>
+          <div className="lg:col-span-1 space-y-6">
+            <Card className="sticky top-8 border-emerald-100 shadow-lg shadow-emerald-500/5">
+              <CardHeader className="bg-emerald-50/50 border-b border-emerald-100 pb-4">
+                <CardTitle className="text-emerald-900">Update Property</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="pt-6 space-y-4">
+                {/* Agent Selection */}
+                <div className="flex flex-col gap-3 mb-4">
+                    <Label>Assign Agent</Label>
+                    <Select 
+                        value={formData.agent_id} 
+                        onValueChange={(value) => handleChange("agent_id", value)}
+                    >
+                        <SelectTrigger className="h-11 bg-white">
+                            <SelectValue placeholder="Select Agent" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        {agentsList.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.id.toString()}>
+                                {agent.name}
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
                 <Button
                   type="submit"
-                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700 h-12"
                   disabled={isSubmitting}
                 >
                   <Save className="mr-2 h-4 w-4" />
                   {isSubmitting ? "Updating..." : "Update Property"}
                 </Button>
-                <Button type="button" variant="outline" className="w-full bg-transparent" asChild>
+                <Button type="button" variant="outline" className="w-full h-11" asChild>
                   <Link href="/admin/properties">Cancel</Link>
                 </Button>
               </CardContent>
