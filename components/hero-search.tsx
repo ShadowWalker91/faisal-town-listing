@@ -114,12 +114,12 @@ export function HeroSearch() {
   }
 
   return (
-    <section className="relative flex flex-col justify-center overflow-hidden py-24 md:min-h-screen md:py-20">
+    <section className="relative flex flex-col justify-center overflow-hidden pt-16 pb-12 md:min-h-screen md:py-20">
       
       {/* Background Video Wrapper */}
       <div className="absolute inset-0 w-full h-full z-0 pointer-events-none select-none overflow-hidden">
         {/* CSS Positioning Wrapper to handle Scaling */}
-        <div className="absolute top-1/2 left-1/2 min-w-[100vw] min-h-[100vh] w-[300%] h-[150%] md:w-[177.77vh] md:h-[56.25vw] -translate-x-1/2 -translate-y-1/2">
+        <div className="absolute top-[40%] md:top-1/2 left-1/2 min-w-[100vw] min-h-[100vh] w-[300%] h-[150%] md:w-[177.77vh] md:h-[56.25vw] -translate-x-1/2 -translate-y-[40%] md:-translate-y-1/2">
            {/* The actual div the API replaces with an Iframe */}
            <div id="youtube-player" className="w-full h-full" />
         </div>
@@ -127,7 +127,7 @@ export function HeroSearch() {
 
       <div className="absolute inset-0 bg-black/60 z-10" />
       
-      <div className="container relative z-20 mx-auto px-4 mt-10 md:mt-0">
+      <div className="container relative z-20 mx-auto px-4 mt-4 md:mt-0">
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="mb-4 text-balance text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">
             Find Your Perfect Property in <span className="text-secondary">Faisal Town</span>

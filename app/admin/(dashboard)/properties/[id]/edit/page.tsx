@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-// NOTE: Removed SECTORS import to use dynamic DB data instead
 import { PROPERTY_TYPES } from "@/lib/types"
 import { ArrowLeft, Save, Upload, X, Loader2, Star } from "lucide-react"
 
@@ -19,6 +18,9 @@ export default function EditPropertyPage() {
   const router = useRouter()
   const params = useParams()
   const id = params?.id
+
+  // --- CONFIGURATION ---
+  const BUCKET_NAME = "faisalTownListitngBucket" 
 
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -48,7 +50,7 @@ export default function EditPropertyPage() {
     address: "",
     features: "",
     readyToMove: false,
-    isFeatured: false, // Ensure this exists in initial state
+    isFeatured: false, 
     agent_id: "",
   })
 
@@ -58,7 +60,7 @@ export default function EditPropertyPage() {
       if (!id) return
 
       try {
-        // A. Load Select Options (Sectors & Agents)
+        // A. Load Select Options
         const { data: sData } = await supabase.from('sectors').select('*').order('name', { ascending: true })
         setSectorsList(sData || [])
 
@@ -86,12 +88,12 @@ export default function EditPropertyPage() {
           bathrooms: property.bathrooms || "",
           area: property.area,
           areaUnit: property.area_unit,
-          sector: property.sector, // This matches s.name from DB
+          sector: property.sector,
           street: property.street || "",
           address: property.address,
           features: property.features ? property.features.join(", ") : "",
           readyToMove: property.ready_to_move,
-          isFeatured: property.is_featured || false, // Correctly mapped
+          isFeatured: property.is_featured || false,
           agent_id: property.agent_id ? property.agent_id.toString() : "",
         })
 
@@ -123,6 +125,8 @@ export default function EditPropertyPage() {
   }
 
   const removeExistingImage = (urlToRemove: string) => {
+    // Just remove from the state array; actual file deletion from storage 
+    // is optional/advanced. We'll just unlink it from the property record here.
     setExistingImages((prev) => prev.filter((url) => url !== urlToRemove))
   }
 
@@ -133,22 +137,28 @@ export default function EditPropertyPage() {
     try {
       // 1. Upload NEW Images
       const newImageUrls: string[] = []
+      
       for (const file of imageFiles) {
-        const fileName = `${Date.now()}-${file.name.replace(/\s/g, '-')}`
+        // Create clean unique file name
+        const fileExt = file.name.split(".").pop()
+        const cleanName = file.name.replace(/[^a-zA-Z0-9]/g, '') // Remove special chars
+        const fileName = `${Date.now()}-${cleanName}.${fileExt}`
+        
+        // Upload to the bucket
         const { error } = await supabase.storage
-          .from('property-images')
+          .from(BUCKET_NAME) 
           .upload(fileName, file)
 
         if (error) throw error
         
         const { data: publicUrlData } = supabase.storage
-          .from('property-images')
+          .from(BUCKET_NAME)
           .getPublicUrl(fileName)
           
         newImageUrls.push(publicUrlData.publicUrl)
       }
 
-      // Combine Old + New Images
+      // Combine Old (remaining) + New Images
       const finalImages = [...existingImages, ...newImageUrls]
 
       // 2. Prepare Data
@@ -168,7 +178,7 @@ export default function EditPropertyPage() {
         address: formData.address,
         features: formData.features.split(',').map(f => f.trim()).filter(f => f !== ''),
         ready_to_move: formData.readyToMove,
-        is_featured: formData.isFeatured, // Sending TRUE/FALSE correctly
+        is_featured: formData.isFeatured,
         images: finalImages,
         agent_id: formData.agent_id ? Number(formData.agent_id) : null
       }

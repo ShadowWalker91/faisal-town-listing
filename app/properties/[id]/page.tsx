@@ -5,11 +5,12 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button" // Need this for Agent Buttons
+import { Button } from "@/components/ui/button"
 import { formatPrice, formatArea, PROPERTY_TYPES, SECTORS } from "@/lib/types"
-import { ArrowLeft, Bed, Bath, Maximize, MapPin, Calendar, Check, Phone, MessageCircle } from "lucide-react"
-import { PropertyContactForm } from "@/components/property-contact-form"
-import { PropertyGallery } from "@/components/property-gallery" // <--- IMPORT NEW GALLERY
+import { ArrowLeft, Bed, Bath, Maximize, MapPin, Calendar, Check } from "lucide-react"
+import { PropertyGallery } from "@/components/property-gallery"
+import { PropertyContactButtons } from "@/components/property-contact-buttons"
+import { PropertyViewTracker } from "@/components/property-view-tracker"
 
 interface PropertyDetailPageProps {
   params: Promise<{ id: string }>
@@ -21,7 +22,7 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
   // 1. Fetch Data
   const { data: dbData, error } = await supabase
     .from('properties')
-    .select('*, agents(*)') // Fetch Agent Data
+    .select('*, agents(*)')
     .eq('uuid', id) 
     .single()
 
@@ -35,12 +36,11 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
     listingType: dbData.listing_type,
     propertyType: dbData.property_type,
     readyToMove: dbData.ready_to_move,
-    // Fix Unit logic
     areaUnit: dbData.area_unit || dbData.unit || "", 
     createdAt: dbData.created_at,
     features: Array.isArray(dbData.features) ? dbData.features : [],
     images: dbData.images || [],
-    agent: dbData.agents // Simplify agent access
+    agent: dbData.agents 
   }
 
   const propertyTypeLabel = PROPERTY_TYPES.find((t) => t.value === property.propertyType)?.label || property.propertyType
@@ -50,6 +50,10 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1 bg-slate-50">
+        
+        {/* TRACKER: Passes the integer ID to the database function */}
+        <PropertyViewTracker propertyId={property.id} propertyTitle={property.title} />
+
         <div className="container mx-auto px-4 py-8">
           <Link
             href="/properties"
@@ -63,8 +67,6 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
             
             {/* --- LEFT COLUMN --- */}
             <div className="lg:col-span-2">
-              
-              {/* 1. REPLACED STATIC IMAGES WITH INTERACTIVE GALLERY */}
               <div className="mb-6">
                  <PropertyGallery images={property.images} title={property.title} />
               </div>
@@ -149,8 +151,6 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
             {/* --- RIGHT COLUMN --- */}
             <div className="lg:col-span-1">
               <div className="sticky top-20 space-y-6">
-                
-                {/* Price Box */}
                 <Card>
                   <CardContent className="p-6">
                     <div className="mb-1">
@@ -167,12 +167,10 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
                   </CardContent>
                 </Card>
 
-                {/* --- AGENT CARD (UPDATED) --- */}
                 {property.agent && (
                   <Card className="overflow-hidden border-[#b800ff]/20 shadow-md">
                     <CardContent className="p-6">
                       <div className="flex items-center gap-4 mb-6">
-                        {/* Agent Image */}
                         <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full border-2 border-slate-100 bg-slate-100">
                           {property.agent.image_url ? (
                              // eslint-disable-next-line @next/next/no-img-element
@@ -187,39 +185,19 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
                              </div>
                           )}
                         </div>
-                        
-                        {/* Agent Details */}
                         <div>
                           <p className="font-bold text-lg text-foreground">{property.agent.name}</p>
                           <p className="text-sm text-muted-foreground">{property.agent.company}</p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        {/* Call Button - Rounded/Pill */}
-                        <Button 
-                          className="w-full rounded-full bg-slate-900 hover:bg-slate-800 text-white"
-                          asChild
-                        >
-                          <a href={`tel:${property.agent.phone}`}>
-                            <Phone className="mr-2 h-4 w-4" /> Call
-                          </a>
-                        </Button>
-
-                        {/* WhatsApp Button - Rounded/Pill */}
-                        <Button 
-                          className="w-full rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white"
-                          asChild
-                        >
-                          <a 
-                            href={`https://wa.me/${property.agent.whatsapp}?text=Hi, I am interested in ${property.title}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp
-                          </a>
-                        </Button>
-                      </div>
+                      {/* Contact Buttons */}
+                      <PropertyContactButtons 
+                         propertyId={property.id} 
+                         agentPhone={property.agent.phone} 
+                         agentWhatsapp={property.agent.whatsapp} 
+                         propertyTitle={property.title}
+                      />
 
                       <div className="mt-3">
                         <Button variant="outline" className="w-full rounded-full" asChild>
@@ -232,10 +210,6 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
                     </CardContent>
                   </Card>
                 )}
-
-                {/* Form moved below agent card or removed if using buttons only. 
-                    I kept it as fallback if agent is missing, or remove it if you strictly want buttons only.
-                    Below is property summary. */}
 
                 <Card>
                   <CardContent className="p-6">

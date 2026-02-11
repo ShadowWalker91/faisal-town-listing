@@ -14,7 +14,7 @@ export type PropertyType =
 
 export interface Property {
   id: string
-  uuid: string
+  uuid?: string
   title: string
   description: string
   price: number

@@ -9,12 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { formatPrice, SECTORS } from "@/lib/types" // Ensure these exist or helpers are present
-import { Plus, Search, MoreHorizontal, Pencil, Trash2, Eye, Loader2 } from "lucide-react"
+import { SECTORS } from "@/lib/types" 
+import { Plus, Search, MoreHorizontal, Pencil, Trash2, Eye, Loader2, Phone, MessageCircle } from "lucide-react"
 
-// Define the type based on your Supabase Table
+// 1. UPDATE TYPE DEFINITION
 type Property = {
   id: number
+  uuid: string // <--- ADDED THIS FIELD
   title: string
   address: string
   price: number
@@ -25,6 +26,9 @@ type Property = {
   street?: string
   images: string[]
   status?: string
+  views: number
+  whatsapp_clicks: number
+  call_clicks: number
 }
 
 export default function AdminPropertiesPage() {
@@ -32,9 +36,10 @@ export default function AdminPropertiesPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Fetch Data from Supabase
   const fetchProperties = async () => {
     setLoading(true)
+    // The query 'select(*)' already fetches the uuid, 
+    // we just needed to add it to the Type definition above.
     const { data, error } = await supabase
       .from('properties')
       .select('*')
@@ -48,7 +53,6 @@ export default function AdminPropertiesPage() {
     setLoading(false)
   }
 
-  // Delete Function
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this property?")) return;
 
@@ -60,17 +64,14 @@ export default function AdminPropertiesPage() {
     if (error) {
       alert("Error deleting: " + error.message)
     } else {
-      // Remove from UI instantly
       setProperties(prev => prev.filter(p => p.id !== id))
     }
   }
 
-  // Initial Load
   useEffect(() => {
     fetchProperties()
   }, [])
 
-  // Filter Logic
   const filteredProperties = properties.filter(
     (property) =>
       property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -82,7 +83,7 @@ export default function AdminPropertiesPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Properties</h1>
-          <p className="text-muted-foreground">Manage all property listings</p>
+          <p className="text-muted-foreground">Manage all property listings and view statistics</p>
         </div>
         <Link href="/admin/properties/new">
           <Button className="bg-emerald-600 text-white hover:bg-emerald-700">
@@ -118,8 +119,7 @@ export default function AdminPropertiesPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Property</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Location</TableHead>
+                    <TableHead className="text-center">Stats</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -139,33 +139,45 @@ export default function AdminPropertiesPage() {
                           </div>
                           <div>
                             <p className="font-medium text-foreground line-clamp-1">{property.title}</p>
-                            <p className="text-xs text-muted-foreground">ID: FT-{property.id}</p>
+                            <div className="flex gap-2 text-xs">
+                               <Badge variant="outline" className="h-5 px-1 font-normal text-muted-foreground">
+                                 FT-{property.id}
+                               </Badge>
+                               <Badge 
+                                 className={`h-5 px-1 font-normal ${
+                                   property.listing_type === "buy" 
+                                   ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" 
+                                   : "bg-sky-100 text-sky-700 hover:bg-sky-200"
+                                 }`}
+                               >
+                                 {property.listing_type === "buy" ? "Sale" : "Rent"}
+                               </Badge>
+                            </div>
                           </div>
                         </div>
                       </TableCell>
+                      
+                      {/* STATS COLUMN */}
                       <TableCell>
-                         <Badge
-                            className={
-                              property.listing_type === "buy"
-                                ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                                : "bg-sky-100 text-sky-700 hover:bg-sky-200"
-                            }
-                          >
-                            {property.listing_type === "buy" ? "For Sale" : "For Rent"}
-                          </Badge>
+                         <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1" title="Total Views">
+                               <Eye className="h-3 w-3" />
+                               <span className="font-semibold text-foreground">{property.views || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-1" title="Call Clicks">
+                               <Phone className="h-3 w-3" />
+                               <span className="font-semibold text-foreground">{property.call_clicks || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-1" title="WhatsApp Clicks">
+                               <MessageCircle className="h-3 w-3" />
+                               <span className="font-semibold text-foreground">{property.whatsapp_clicks || 0}</span>
+                            </div>
+                         </div>
                       </TableCell>
-                      <TableCell>
-                        <p className="text-sm text-foreground">
-                           {SECTORS.find((s) => s.id === property.sector)?.name || `Sector ${property.sector}`}
-                        </p>
-                        {property.street && (
-                          <p className="text-xs text-muted-foreground">{property.street}</p>
-                        )}
-                      </TableCell>
+
                       <TableCell>
                         <p className="font-medium text-foreground">
-                            {/* Simple formatter in case import fails */}
-                            {new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR' }).format(property.price)}
+                            {new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(property.price)}
                         </p>
                         {property.listing_type === "rent" && (
                           <p className="text-xs text-muted-foreground">/month</p>
@@ -183,13 +195,15 @@ export default function AdminPropertiesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            
+                            {/* 2. UPDATE LINK TO USE UUID INSTEAD OF ID */}
                             <DropdownMenuItem asChild>
-                              <Link href={`/properties/${property.id}`} className="flex items-center">
+                              <Link href={`/properties/${property.uuid}`} className="flex items-center">
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Public
                               </Link>
                             </DropdownMenuItem>
-                            {/* We haven't built the Edit page yet, so this link might 404 for now */}
+
                             <DropdownMenuItem asChild>
                               <Link href={`/admin/properties/${property.id}/edit`} className="flex items-center">
                                 <Pencil className="mr-2 h-4 w-4" />
